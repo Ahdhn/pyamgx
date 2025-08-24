@@ -6,8 +6,8 @@ import subprocess
 import sys
 import numpy
 
-AMGX_DIR = os.environ.get('AMGX_DIR')
-AMGX_BUILD_DIR = os.environ.get('AMGX_BUILD_DIR')
+AMGX_DIR = "C:\\Github\\AMGX"
+AMGX_BUILD_DIR = "C:\\Github\\AMGX\\build"
 
 
 if sys.platform == "win32":

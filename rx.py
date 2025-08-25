@@ -5,61 +5,66 @@ ctypes.CDLL(r"C:\\Github\\AMGX\\build\\Release\\amgxsh.dll")
 
 import numpy as np
 import scipy.sparse as sparse
+from scipy.io import mmread
 import scipy.sparse.linalg as splinalg
 
 import pyamgx
 
 pyamgx.initialize()
 
-# Initialize config and resources:
-# cfg = pyamgx.Config().create_from_dict({
-#    "config_version": 2,
-#         "determinism_flag": 1,
-#         "exception_handling" : 1,
-#         "solver": {
-#             "monitor_residual": 1,
-#             "solver": "BICGSTAB",
-#             "convergence": "RELATIVE_INI_CORE",
-#             "preconditioner": {
-#                 "solver": "NOSOLVER"
-#         }
-#     }
-# })
+A_path = "C:\\Github\\RXMesh\\output\\MCF_matrices\\Nefertiti_A.mtx"
+rhs_path = "C:\\Github\\RXMesh\\output\\MCF_matrices\\Nefertiti_B.mtx"
 
-cfg = pyamgx.Config().create_from_file(r"C:\\Github\\AMGX\\src\\configs\\FGMRES_NOPREC.json")
+cfg = pyamgx.Config().create_from_file("rx.json")
 
 rsc = pyamgx.Resources().create_simple(cfg)
 
 # Create matrices and vectors:
 A = pyamgx.Matrix().create(rsc)
-b = pyamgx.Vector().create(rsc)
+b0 = pyamgx.Vector().create(rsc)
+b1 = pyamgx.Vector().create(rsc)
+b2 = pyamgx.Vector().create(rsc)
 x = pyamgx.Vector().create(rsc)
 
 # Create solver:
-solver = pyamgx.Solver().create(rsc, cfg)
+solver = pyamgx.Solver().create(rsc, cfg, 'dDDI')
 
-# Upload system:
-M = sparse.csr_matrix(np.random.rand(5, 5))
-rhs = np.random.rand(5)
-sol = np.zeros(5, dtype=np.float64)
+# Read the matrices 
+N = 1000
+#M = sparse.csr_matrix(np.random.rand(N, N), dtype=np.float64)
+M = mmread(A_path).tocsr()
+rhs = mmread(rhs_path) 
+rhs = np.asarray(rhs)
+sol = np.zeros(rhs.shape[0])
 
+print(f"Matrix shape {M.shape} with {M.nnz} NNZ")
+print(f"RHS shape {rhs.shape}")
+
+# Upload the matrices 
 A.upload_CSR(M)
-b.upload(rhs)
+b0.upload(rhs[:,0])
+b1.upload(rhs[:,1])
+b2.upload(rhs[:,2])
 x.upload(sol)
 
 # Setup and solve system:
 solver.setup(A)
-solver.solve(b, x)
+solver.solve(b0, x)
+solver.solve(b1, x)
+solver.solve(b2, x)
 
 # Download solution
-x.download(sol)
-print("pyamgx solution: ", sol)
-print("scipy solution: ", splinalg.spsolve(M, rhs))
+#x.download(sol)
+print(f"pyamgx took {solver.iterations_number} iter")
+print(f"pyamgx solver status: {solver.status}")
+#print("scipy solution: ", splinalg.spsolve(M, rhs))
 
 # Clean up:
 A.destroy()
 x.destroy()
-b.destroy()
+b0.destroy()
+b1.destroy()
+b2.destroy()
 solver.destroy()
 rsc.destroy()
 cfg.destroy()

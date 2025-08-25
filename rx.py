@@ -10,10 +10,15 @@ import scipy.sparse.linalg as splinalg
 
 import pyamgx
 
+import igl
+
 pyamgx.initialize()
 
-A_path = "C:\\Github\\RXMesh\\output\\MCF_matrices\\Nefertiti_A.mtx"
-rhs_path = "C:\\Github\\RXMesh\\output\\MCF_matrices\\Nefertiti_B.mtx"
+model_name = "sphere1"
+write_output = True
+
+A_path = f"C:\\Github\\RXMesh\\output\\MCF_matrices\\{model_name}_A.mtx"
+rhs_path = f"C:\\Github\\RXMesh\\output\\MCF_matrices\\{model_name}_B.mtx"
 
 cfg = pyamgx.Config().create_from_file("rx.json")
 
@@ -21,50 +26,63 @@ rsc = pyamgx.Resources().create_simple(cfg)
 
 # Create matrices and vectors:
 A = pyamgx.Matrix().create(rsc)
-b0 = pyamgx.Vector().create(rsc)
-b1 = pyamgx.Vector().create(rsc)
-b2 = pyamgx.Vector().create(rsc)
+b = [pyamgx.Vector().create(rsc), pyamgx.Vector().create(rsc), pyamgx.Vector().create(rsc)]
 x = pyamgx.Vector().create(rsc)
 
 # Create solver:
 solver = pyamgx.Solver().create(rsc, cfg, 'dDDI')
 
 # Read the matrices 
-N = 1000
-#M = sparse.csr_matrix(np.random.rand(N, N), dtype=np.float64)
 M = mmread(A_path).tocsr()
 rhs = mmread(rhs_path) 
 rhs = np.asarray(rhs)
-sol = np.zeros(rhs.shape[0])
+
+print(rhs)
+
+rows = rhs.shape[0]
+cols = rhs.shape[1]
+
+sol = np.zeros(rows)
+
+if write_output:
+    output = np.zeros(rhs.shape)
 
 print(f"Matrix shape {M.shape} with {M.nnz} NNZ")
 print(f"RHS shape {rhs.shape}")
 
 # Upload the matrices 
 A.upload_CSR(M)
-b0.upload(rhs[:,0])
-b1.upload(rhs[:,1])
-b2.upload(rhs[:,2])
+for i in range(cols):
+    b[i].upload(rhs[:,i])
+
 x.upload(sol)
 
 # Setup and solve system:
 solver.setup(A)
-solver.solve(b0, x)
-solver.solve(b1, x)
-solver.solve(b2, x)
+
+for i in range(cols):    
+    solver.solve(b[i], x)
+    if write_output:
+        x.download(sol)
+        output[:,i] = sol
 
 # Download solution
 #x.download(sol)
 print(f"pyamgx took {solver.iterations_number} iter")
 print(f"pyamgx solver status: {solver.status}")
-#print("scipy solution: ", splinalg.spsolve(M, rhs))
+
+if write_output:
+    v, f = igl.read_triangle_mesh(f"C:\\Github\\RXMesh\\output\\MCF_matrices\\{model_name}.obj")
+    igl.write_triangle_mesh(f"{model_name}_amgx.obj", output, f)
+
+scipy_output = splinalg.spsolve(M, rhs)
+igl.write_triangle_mesh(f"{model_name}_scipy.obj", scipy_output, f)
 
 # Clean up:
 A.destroy()
 x.destroy()
-b0.destroy()
-b1.destroy()
-b2.destroy()
+for i in range(cols):
+    b[i].destroy()
 solver.destroy()
 rsc.destroy()
 cfg.destroy()

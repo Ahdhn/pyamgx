@@ -15,7 +15,7 @@ import igl
 pyamgx.initialize()
 
 model_name = "sphere1"
-write_output = True
+write_output = False
 
 A_path = f"C:\\Github\\RXMesh\\output\\MCF_matrices\\{model_name}_A.mtx"
 rhs_path = f"C:\\Github\\RXMesh\\output\\MCF_matrices\\{model_name}_B.mtx"
@@ -75,8 +75,8 @@ if write_output:
     v, f = igl.read_triangle_mesh(f"C:\\Github\\RXMesh\\output\\MCF_matrices\\{model_name}.obj")
     igl.write_triangle_mesh(f"{model_name}_amgx.obj", output, f)
 
-scipy_output = splinalg.spsolve(M, rhs)
-igl.write_triangle_mesh(f"{model_name}_scipy.obj", scipy_output, f)
+    scipy_output = splinalg.spsolve(M, rhs)
+    igl.write_triangle_mesh(f"{model_name}_scipy.obj", scipy_output, f)
 
 # Clean up:
 A.destroy()
